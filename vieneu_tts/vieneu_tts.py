@@ -496,12 +496,7 @@ class FastVieNeuTTS:
             quant_policy=quant_policy
         )
         
-        # CRITICAL: Set stop words for speech generation
-        self.backbone = pipeline(
-            repo, 
-            backend_config=backend_config,
-            stop_words=['<|SPEECH_GENERATION_END|>']
-        )
+        self.backbone = pipeline(repo, backend_config=backend_config)
         
         self.gen_config = GenerationConfig(
             top_p=0.95,
@@ -717,7 +712,15 @@ class FastVieNeuTTS:
         
         # Use LMDeploy pipeline for generation
         print(f"  🚀 Calling LMDeploy pipeline...")
-        responses = self.backbone([prompt], gen_config=self.gen_config, do_preprocess=False)
+        
+        # CRITICAL: Pass stop words at generation time, not pipeline init
+        from lmdeploy import GenerationConfig as GenConfigRuntime
+        runtime_config = GenConfigRuntime(
+            **self.gen_config.__dict__,
+            stop_words=['<|SPEECH_GENERATION_END|>']
+        )
+        
+        responses = self.backbone([prompt], gen_config=runtime_config, do_preprocess=False)
         output_str = responses[0].text
         
         print(f"  📥 Response received:")
