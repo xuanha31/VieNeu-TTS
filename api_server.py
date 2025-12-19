@@ -362,6 +362,14 @@ async def synthesize(request: TTSRequest):
         # Split text into chunks
         text_chunks = split_text_into_chunks(request.text.strip(), max_chars=MAX_CHARS_PER_CHUNK)
         
+        # DEBUG: Log chunks
+        print(f"\n📝 Text chunking:")
+        print(f"  Input text length: {len(request.text.strip())} chars")
+        print(f"  Max chars per chunk: {MAX_CHARS_PER_CHUNK}")
+        print(f"  Number of chunks: {len(text_chunks)}")
+        for i, chunk in enumerate(text_chunks):
+            print(f"  Chunk {i+1} ({len(chunk)} chars): {chunk[:100]}{'...' if len(chunk) > 100 else ''}")
+        
         # Synthesize
         all_audio_segments = []
         sr = 24000
