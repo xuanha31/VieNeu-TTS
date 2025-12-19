@@ -68,6 +68,8 @@ class TTSRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize", max_length=15000)
     voice: str = Field(default="Vĩnh (nam miền Nam)", description="Voice sample name")
     use_batch: bool = Field(default=True, description="Use batch processing if available")
+    speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Speed multiplier (0.5-2.0, 1.0 = normal)")
+    format: str = Field(default="wav", pattern="^(wav|mp3)$", description="Output format: wav or mp3")
 
 class TTSCustomRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize", max_length=10000)
@@ -394,23 +396,54 @@ async def synthesize(request: TTSRequest):
         if not all_audio_segments:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
         
-        # Concatenate and save
+        # Concatenate
         final_wav = np.concatenate(all_audio_segments)
         
+        # Apply speed adjustment if needed
+        if request.speed != 1.0:
+            import librosa
+            print(f"⚡ Applying speed adjustment: {request.speed}x")
+            final_wav = librosa.effects.time_stretch(final_wav, rate=request.speed)
+        
         # Create temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            sf.write(tmp.name, final_wav, sr)
-            output_path = tmp.name
+        if request.format == "mp3":
+            # Save as WAV first, then convert to MP3
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
+                sf.write(tmp_wav.name, final_wav, sr)
+                
+                # Convert to MP3 using pydub
+                from pydub import AudioSegment
+                print(f"🎵 Converting to MP3...")
+                audio = AudioSegment.from_wav(tmp_wav.name)
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_mp3:
+                    audio.export(tmp_mp3.name, format="mp3", bitrate="128k")
+                    output_path = tmp_mp3.name
+                
+                # Clean up temp WAV
+                os.unlink(tmp_wav.name)
+        else:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                sf.write(tmp.name, final_wav, sr)
+                output_path = tmp.name
         
         # Cleanup memory
         if current_config["using_lmdeploy"] and hasattr(tts, 'cleanup_memory'):
             tts.cleanup_memory()
         cleanup_gpu_memory()
         
+        # Determine media type and filename based on format
+        if request.format == "mp3":
+            media_type = "audio/mpeg"
+            filename = f"tts_output_{int(time.time())}.mp3"
+        else:
+            media_type = "audio/wav"
+            filename = f"tts_output_{int(time.time())}.wav"
+        
         return FileResponse(
             output_path,
-            media_type="audio/wav",
-            filename=f"tts_output_{int(time.time())}.wav",
+            media_type=media_type,
+            filename=filename,
             background=None
         )
         
