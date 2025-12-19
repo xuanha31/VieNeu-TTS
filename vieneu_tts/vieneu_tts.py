@@ -505,6 +505,7 @@ class FastVieNeuTTS:
             max_new_tokens=2048,
             do_sample=True,
             min_new_tokens=40,
+            stop=['<|SPEECH_GENERATION_END|>'],  # CRITICAL: Tell LMDeploy when to stop
         )
         
         print(f"   LMDeploy TurbomindEngine initialized")
