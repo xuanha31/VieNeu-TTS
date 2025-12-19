@@ -493,7 +493,8 @@ class FastVieNeuTTS:
             tp=tp,
             enable_prefix_caching=enable_prefix_caching,
             dtype='bfloat16',
-            quant_policy=quant_policy
+            quant_policy=quant_policy,
+            session_len=8192  # Increase context window
         )
         
         self.backbone = pipeline(repo, backend_config=backend_config)
@@ -713,19 +714,10 @@ class FastVieNeuTTS:
         # Use LMDeploy pipeline for generation
         print(f"  🚀 Calling LMDeploy pipeline...")
         
-        # CRITICAL: Create new config with stop_words (avoid spreading dict to prevent duplicates)
-        from lmdeploy import GenerationConfig as GenConfigRuntime
-        runtime_config = GenConfigRuntime(
-            top_p=0.95,
-            top_k=50,
-            temperature=1.0,
-            max_new_tokens=2048,
-            do_sample=True,
-            min_new_tokens=40,
-            stop_words=['<|SPEECH_GENERATION_END|>']
-        )
+        # DEBUG: Try without stop_words first to see if model generates anything
+        print(f"  ⚠️ Running WITHOUT stop_words to debug")
         
-        responses = self.backbone([prompt], gen_config=runtime_config, do_preprocess=False)
+        responses = self.backbone([prompt], gen_config=self.gen_config, do_preprocess=False)
         output_str = responses[0].text
         
         print(f"  📥 Response received:")
