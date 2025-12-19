@@ -1,0 +1,23 @@
+# Core dependencies for API (without lmdeploy)
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+accelerate>=0.20.0
+soundfile>=0.12.0
+numpy>=1.24.0
+pyyaml>=6.0
+einops>=0.7.0
+safetensors>=0.4.0
+
+# API dependencies
+fastapi==0.120.2
+uvicorn==0.38.0
+python-multipart==0.0.20
+pyngrok==7.0.0
+
+# VieNeuTTS dependencies
+neucodec>=0.0.4
+onnxruntime>=1.15.0
+
+# Optional: Install lmdeploy separately on Linux with CUDA
+# pip install lmdeploy==0.11.0
