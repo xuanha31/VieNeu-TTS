@@ -714,10 +714,10 @@ class FastVieNeuTTS:
         # Use LMDeploy pipeline for generation
         print(f"  🚀 Calling LMDeploy pipeline...")
         
-        # DEBUG: Try without stop_words first to see if model generates anything
-        print(f"  ⚠️ Running WITHOUT stop_words to debug")
+        # CRITICAL FIX: Try with do_preprocess=True to let tokenizer handle special tokens
+        print(f"  ⚠️ Running WITH do_preprocess=True to let LMDeploy handle tokenization")
         
-        responses = self.backbone([prompt], gen_config=self.gen_config, do_preprocess=False)
+        responses = self.backbone([prompt], gen_config=self.gen_config, do_preprocess=True)
         output_str = responses[0].text
         
         print(f"  📥 Response received:")

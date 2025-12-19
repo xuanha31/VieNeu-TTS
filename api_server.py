@@ -121,7 +121,8 @@ def ensure_model_loaded():
         backbone_config = BACKBONE_CONFIGS[default_backbone]
         codec_config = CODEC_CONFIGS[default_codec]
         
-        use_lmdeploy = should_use_lmdeploy(default_backbone, default_device)
+        # CRITICAL FIX: Force standard backend due to LMDeploy compatibility issues
+        use_lmdeploy = False  # should_use_lmdeploy(default_backbone, default_device)
         
         if use_lmdeploy:
             print(f"🚀 Using LMDeploy backend")
@@ -151,7 +152,7 @@ def ensure_model_loaded():
             
             current_config["using_lmdeploy"] = True
         else:
-            print(f"📦 Using standard backend")
+            print(f"📦 Using standard PyTorch backend (LMDeploy disabled due to compatibility)")
             
             if default_device == "Auto":
                 backbone_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -175,7 +176,7 @@ def ensure_model_loaded():
             "loaded": True
         })
         
-        print(f"✅ Model đã được load tự động: {default_backbone} + {default_codec}")
+        print(f"✅ Model đã được load tự động: {default_backbone} + {default_codec} (Standard Backend)")
         
     except Exception as e:
         print(f"❌ Lỗi khi auto-load model: {str(e)}")
