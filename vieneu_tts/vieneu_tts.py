@@ -496,7 +496,12 @@ class FastVieNeuTTS:
             quant_policy=quant_policy
         )
         
-        self.backbone = pipeline(repo, backend_config=backend_config)
+        # CRITICAL: Set stop words for speech generation
+        self.backbone = pipeline(
+            repo, 
+            backend_config=backend_config,
+            stop_words=['<|SPEECH_GENERATION_END|>']
+        )
         
         self.gen_config = GenerationConfig(
             top_p=0.95,
@@ -505,7 +510,6 @@ class FastVieNeuTTS:
             max_new_tokens=2048,
             do_sample=True,
             min_new_tokens=40,
-            stop=['<|SPEECH_GENERATION_END|>'],  # CRITICAL: Tell LMDeploy when to stop
         )
         
         print(f"   LMDeploy TurbomindEngine initialized")
