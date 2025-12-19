@@ -699,11 +699,26 @@ class FastVieNeuTTS:
         if isinstance(ref_codes, np.ndarray):
             ref_codes = ref_codes.flatten().tolist()
         
+        print(f"\n🔍 DEBUG infer():")
+        print(f"  Input text: {text[:100]}..." if len(text) > 100 else f"  Input text: {text}")
+        print(f"  Ref text: {ref_text[:100]}..." if len(ref_text) > 100 else f"  Ref text: {ref_text}")
+        print(f"  Ref codes length: {len(ref_codes)}")
+        
         prompt = self._format_prompt(ref_codes, ref_text, text)
         
+        print(f"  Prompt length: {len(prompt)} chars")
+        print(f"  Prompt (first 300 chars): {prompt[:300]}")
+        print(f"  Prompt (last 200 chars): {prompt[-200:]}")
+        
         # Use LMDeploy pipeline for generation
+        print(f"  🚀 Calling LMDeploy pipeline...")
         responses = self.backbone([prompt], gen_config=self.gen_config, do_preprocess=False)
         output_str = responses[0].text
+        
+        print(f"  📥 Response received:")
+        print(f"  Response length: {len(output_str)} chars")
+        print(f"  Response (first 500 chars): {output_str[:500]}")
+        print(f"  Response finish_reason: {responses[0].finish_reason if hasattr(responses[0], 'finish_reason') else 'N/A'}")
         
         # Decode to audio
         wav = self._decode(output_str)
