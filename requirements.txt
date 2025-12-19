@@ -91,7 +91,7 @@ pooch==1.8.2
 prometheus-client==0.23.1
 prompt-toolkit==3.0.52
 propcache==0.4.1
-protobuf==6.33.2
+protobuf==5.29.5
 psutil==7.1.2
 pyarrow==22.0.0
 pycparser==2.23
@@ -144,7 +144,7 @@ torchdata==0.11.0
 torchtune==0.6.1
 torchvision==0.20.1
 tqdm==4.67.1
-transformers==4.57.1
+transformers==4.46.0
 typer==0.20.0
 typing-extensions==4.15.0
 typing-inspection==0.4.2
