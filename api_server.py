@@ -501,12 +501,73 @@ async def synthesize_base64(request: TTSRequest):
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    
+    # Detect if running in Colab
+    try:
+        import google.colab
+        IN_COLAB = True
+    except ImportError:
+        IN_COLAB = False
     
     # Get config from environment
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
     
-    print(f"🚀 Starting VieNeu-TTS API Server on {host}:{port}")
+    # Setup Ngrok if in Colab
+    ngrok_url = None
+    if IN_COLAB:
+        try:
+            from pyngrok import ngrok
+            
+            print("\n" + "="*60)
+            print("🌐 Đang chạy trên Google Colab - Ngrok integration")
+            print("="*60)
+            
+            # Prompt for Ngrok token
+            ngrok_token = input("\n🔑 Nhập Ngrok Auth Token (lấy tại https://dashboard.ngrok.com/get-started/your-authtoken):\n> ").strip()
+            
+            if ngrok_token:
+                # Set auth token
+                ngrok.set_auth_token(ngrok_token)
+                
+                # Create tunnel
+                print(f"\n⏳ Đang tạo Ngrok tunnel cho port {port}...")
+                ngrok_url = ngrok.connect(port)
+                
+                print("\n" + "="*60)
+                print("✅ Ngrok tunnel đã được tạo thành công!")
+                print("="*60)
+                print(f"\n🌐 Public URL: {ngrok_url}")
+                print(f"📖 API Docs: {ngrok_url}/docs")
+                print(f"\n💡 Sử dụng URL trên để gọi API từ bất kỳ đâu!")
+                print("="*60 + "\n")
+            else:
+                print("\n⚠️ Không có Ngrok token - chỉ chạy local")
+                print(f"📍 Local URL: http://localhost:{port}")
+                
+        except ImportError:
+            print("\n⚠️ pyngrok chưa được cài đặt - chỉ chạy local")
+            print("Cài đặt: pip install pyngrok")
+        except Exception as e:
+            print(f"\n❌ Lỗi khi setup Ngrok: {e}")
+            print(f"📍 Chuyển sang chạy local: http://localhost:{port}")
+    else:
+        print(f"\n📍 Chạy local mode")
+    
+    print(f"\n🚀 Starting VieNeu-TTS API Server on {host}:{port}")
     print(f"📖 API Documentation: http://{host}:{port}/docs")
     
-    uvicorn.run(app, host=host, port=port)
+    if ngrok_url:
+        print(f"🌐 Ngrok Public URL: {ngrok_url}")
+    
+    print("\n⚠️ Nhấn CTRL+C để dừng server\n")
+    
+    try:
+        uvicorn.run(app, host=host, port=port)
+    except KeyboardInterrupt:
+        print("\n\n🛑 Server đã dừng")
+        if ngrok_url:
+            print("🔌 Đóng Ngrok tunnel...")
+            ngrok.disconnect(ngrok_url)
+
