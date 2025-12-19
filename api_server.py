@@ -65,7 +65,7 @@ current_config = {
 
 # Pydantic models
 class TTSRequest(BaseModel):
-    text: str = Field(..., description="Text to synthesize", max_length=10000)
+    text: str = Field(..., description="Text to synthesize", max_length=15000)
     voice: str = Field(default="Vĩnh (nam miền Nam)", description="Voice sample name")
     use_batch: bool = Field(default=True, description="Use batch processing if available")
 
@@ -102,6 +102,85 @@ def cleanup_gpu_memory():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     gc.collect()
+
+def ensure_model_loaded():
+    """Auto-load model with default config if not loaded"""
+    global tts, current_config
+    
+    if current_config["loaded"] and tts is not None:
+        return  # Model already loaded
+    
+    print("\n⚠️ Model chưa được load, đang tự động load với config mặc định...")
+    
+    # Default configuration
+    default_backbone = "VieNeu-TTS (GPU)"
+    default_codec = "NeuCodec (Standard)"
+    default_device = "Auto"
+    
+    try:
+        backbone_config = BACKBONE_CONFIGS[default_backbone]
+        codec_config = CODEC_CONFIGS[default_codec]
+        
+        use_lmdeploy = should_use_lmdeploy(default_backbone, default_device)
+        
+        if use_lmdeploy:
+            print(f"🚀 Using LMDeploy backend")
+            backbone_device = "cuda"
+            codec_device = "cpu" if "ONNX" in default_codec else "cuda"
+            
+            tts = FastVieNeuTTS(
+                backbone_repo=backbone_config["repo"],
+                backbone_device=backbone_device,
+                codec_repo=codec_config["repo"],
+                codec_device=codec_device,
+                memory_util=0.3,
+                tp=1,
+                enable_prefix_caching=True,
+                enable_triton=True,
+                max_batch_size=8,
+            )
+            
+            # Pre-cache voice references
+            print("📝 Pre-caching voice references...")
+            for voice_name, voice_info in VOICE_SAMPLES.items():
+                audio_path = voice_info["audio"]
+                text_path = voice_info["text"]
+                if os.path.exists(audio_path) and os.path.exists(text_path):
+                    ref_text = get_ref_text_cached(text_path)
+                    tts.get_cached_reference(voice_name, audio_path, ref_text)
+            
+            current_config["using_lmdeploy"] = True
+        else:
+            print(f"📦 Using standard backend")
+            
+            if default_device == "Auto":
+                backbone_device = "cuda" if torch.cuda.is_available() else "cpu"
+                codec_device = "cpu" if "ONNX" in default_codec else backbone_device
+            else:
+                backbone_device = default_device.lower()
+                codec_device = "cpu" if "ONNX" in default_codec else backbone_device
+            
+            tts = VieNeuTTS(
+                backbone_repo=backbone_config["repo"],
+                backbone_device=backbone_device,
+                codec_repo=codec_config["repo"],
+                codec_device=codec_device
+            )
+            current_config["using_lmdeploy"] = False
+        
+        current_config.update({
+            "backbone": default_backbone,
+            "codec": default_codec,
+            "device": default_device,
+            "loaded": True
+        })
+        
+        print(f"✅ Model đã được load tự động: {default_backbone} + {default_codec}")
+        
+    except Exception as e:
+        print(f"❌ Lỗi khi auto-load model: {str(e)}")
+        current_config["loaded"] = False
+        raise HTTPException(status_code=500, detail=f"Failed to auto-load model: {str(e)}")
 
 def should_use_lmdeploy(backbone_choice: str, device_choice: str) -> bool:
     """Determine if we should use LMDeploy backend"""
@@ -248,8 +327,8 @@ async def synthesize(request: TTSRequest):
     """Synthesize speech from text using preset voice"""
     global tts, current_config
     
-    if not current_config["loaded"] or tts is None:
-        raise HTTPException(status_code=400, detail="Model not loaded. Call /load_model first")
+    # Auto-load model if not loaded
+    ensure_model_loaded()
     
     if not request.text or request.text.strip() == "":
         raise HTTPException(status_code=400, detail="Text is required")
@@ -328,6 +407,12 @@ async def synthesize(request: TTSRequest):
         
     except Exception as e:
         cleanup_gpu_memory()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"\n❌ ERROR in /synthesize:")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Synthesis failed: {str(e)}")
 
 @app.post("/synthesize_custom")
@@ -340,8 +425,8 @@ async def synthesize_custom(
     """Synthesize speech with custom reference audio"""
     global tts, current_config
     
-    if not current_config["loaded"] or tts is None:
-        raise HTTPException(status_code=400, detail="Model not loaded. Call /load_model first")
+    # Auto-load model if not loaded
+    ensure_model_loaded()
     
     if not text or text.strip() == "":
         raise HTTPException(status_code=400, detail="Text is required")
@@ -406,6 +491,12 @@ async def synthesize_custom(
         
     except Exception as e:
         cleanup_gpu_memory()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"\n❌ ERROR in /synthesize_custom:")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Synthesis failed: {str(e)}")
 
 @app.post("/synthesize_base64", response_model=dict)
@@ -413,8 +504,8 @@ async def synthesize_base64(request: TTSRequest):
     """Synthesize speech and return as base64 encoded audio"""
     global tts, current_config
     
-    if not current_config["loaded"] or tts is None:
-        raise HTTPException(status_code=400, detail="Model not loaded. Call /load_model first")
+    # Auto-load model if not loaded
+    ensure_model_loaded()
     
     if not request.text or request.text.strip() == "":
         raise HTTPException(status_code=400, detail="Text is required")
@@ -497,6 +588,12 @@ async def synthesize_base64(request: TTSRequest):
         
     except Exception as e:
         cleanup_gpu_memory()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"\n❌ ERROR in /synthesize_base64:")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=f"Synthesis failed: {str(e)}")
 
 if __name__ == "__main__":
