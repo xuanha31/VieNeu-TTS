@@ -610,9 +610,20 @@ class FastVieNeuTTS:
     
     def _decode(self, codes: str):
         """Decode speech tokens to audio waveform"""
+        # Debug: Print raw output
+        print(f"\n🔍 DEBUG _decode():")
+        print(f"  Input codes (first 500 chars): {codes[:500]}")
+        print(f"  Input codes (last 200 chars): {codes[-200:]}")
+        print(f"  Total length: {len(codes)}")
+        
         speech_ids = [int(num) for num in re.findall(r"<\|speech_(\d+)\|>", codes)]
         
+        print(f"  Found {len(speech_ids)} speech tokens")
+        if len(speech_ids) > 0:
+            print(f"  First 10 tokens: {speech_ids[:10]}")
+        
         if len(speech_ids) == 0:
+            print(f"  ❌ No speech tokens found! Raw output:\n{codes}")
             raise ValueError("No valid speech tokens found in output")
         
         if self._is_onnx_codec:
